@@ -24,7 +24,7 @@ x-airflow-common: &airflow-common
     - ./spark:/opt/airflow/spark
     - ./great_expectations:/opt/airflow/great_expectations
     - ./data:/opt/airflow/data
-    - ./logs:/opt/airflow/logs
+    - airflow-logs:/opt/airflow/logs
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     postgres:
@@ -49,7 +49,7 @@ services:
 
   # ---------- Data lake Medallion ----------
   minio:
-    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+    image: docker.io/pgsty/silo:RELEASE.2026-08-06T00-00-00Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -60,13 +60,13 @@ services:
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "mc", "ready", "local"]
       interval: 5s
       retries: 10
 
   # Création des buckets Bronze / Silver au démarrage
   minio-init:
-    image: minio/mc:RELEASE.2024-06-12T14-34-03Z
+    image: docker.io/pgsty/silo:RELEASE.2026-08-06T00-00-00Z
     depends_on:
       minio:
         condition: service_healthy
@@ -114,6 +114,7 @@ services:
     command:
       - -c
       - |
+        mkdir -p /opt/airflow/logs && chown -R 50000:0 /opt/airflow/logs ;
         airflow db migrate &&
         airflow users create --username ${AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD} \
           --firstname Admin --lastname SciPulse --role Admin --email admin@scipulse.local || true
@@ -170,3 +171,4 @@ volumes:
   postgres-data:
   minio-data:
   es-data:
+  airflow-logs:
